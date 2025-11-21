@@ -1,3 +1,6 @@
+import argparse
+import json
+import os
 import re
 
 import requests
@@ -6,7 +9,6 @@ from bs4 import BeautifulSoup
 DEFAULT_URL = "https://etherscan.io/tokens"
 ROOT = "https://etherscan.io"
 PRICE_RE = re.compile(r"\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)")
-
 
 def load_html(source):
     if not source:
@@ -19,7 +21,6 @@ def load_html(source):
         return resp.text
     with open(source, "r", encoding="utf-8", errors="ignore") as f:
         return f.read()
-
 
 def parse_tokens(html):
     soup = BeautifulSoup(html, "lxml")
@@ -59,5 +60,24 @@ def parse_tokens(html):
     out.sort(key=lambda x: x["price_usd"], reverse=True)
     return out
 
-print(parse_tokens(input()))
-print(load_html(input()))
+def main():
+    ap = argparse.ArgumentParser(description="Etherscan tokens scraper to JSON")
+    ap.add_argument("--source", "-s", default=None, help="URL или путь к локальному .html")
+    ap.add_argument("--limit", "-n", type=int, default=50, help="Сколько позиций сохранить")
+    ap.add_argument("--out", "-o", default="tokens.json", help="Куда сохранить JSON")
+    args = ap.parse_args()
+
+    html = load_html(args.source)
+    items = parse_tokens(html)
+    if args.limit and args.limit > 0:
+        items = items[:args.limit]
+
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+    print(f"Saved {len(items)} items to {args.out}")
+    for r in items[:3]:
+        print(f"- {r['token']} | ${r['price_usd']} | {r['url']}")
+
+if __name__ == "__main__":
+    main()
